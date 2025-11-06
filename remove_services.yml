@@ -1,0 +1,49 @@
+---
+- name: Stop and remove Apache/Httpd web server
+  hosts: all
+  become: true
+  vars:
+    apache_services:
+      - httpd
+      - apache2
+    apache_packages:
+      - httpd
+      - apache2
+      - php
+      - libapache2-mod-php
+
+  tasks:
+    - name: Stop Apache-related services if present
+      ansible.builtin.service:
+        name: "{{ item }}"
+        state: stopped
+        enabled: false
+      loop: "{{ apache_services }}"
+      register: stop_result
+      failed_when: false  # instead of ignore_errors
+
+    - name: Display stopped services
+      ansible.builtin.debug:
+        msg: "Service {{ item.item }} stop result: {{ item.state | default('unknown') }}"
+      loop: "{{ stop_result.results }}"
+      when: stop_result is defined
+
+    - name: Remove Apache and PHP-related packages
+      ansible.builtin.package:
+        name: "{{ apache_packages }}"
+        state: absent
+        autoremove: true
+      register: remove_result
+      failed_when: false  # continue even if package missing
+
+    - name: Purge residual configuration files (Ubuntu/Debian only)
+      ansible.builtin.apt:
+        name:
+          - apache2*
+          - php*
+        state: absent
+        purge: true
+        autoremove: true
+      when: ansible_distribution == "Ubuntu"
+      register: purge_result
+      failed_when: false

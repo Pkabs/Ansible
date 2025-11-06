@@ -1,0 +1,56 @@
+---
+- name: Playbook to install and configure web server services
+  hosts: all
+  become: true
+  vars:
+    web_server_services:
+      - httpd
+      - apache2
+    web_server_packages:
+      - httpd
+      - apache2
+      - php
+      - libapache2-mod-php
+
+  tasks:
+    - name: Install Packages
+      ansible.builtin.package:
+        name: "{{ web_server_packages }}"
+        update_cache: true
+        state: present
+        register: install_result
+      failed_when: false  # continue even if package missing
+
+    - name: Print installed packages
+      ansible.builtin.debug:
+        msg: "Package {{ item.item }} installed: {{ item.state | default('unknown') }}"
+      loop: "{{ install_result.results }}"
+      # when: install_result is defined
+
+    - name: Change HTTPD port to 8180
+      ansible.builtin.lineinfile:
+        path: /etc/httpd/conf/httpd.conf
+        regexp: '^Listen'
+        line: 'Listen 8180'
+      notify: Restart_httpd
+      when: ansible_distribution == "Fedora"
+
+  handlers:
+    - name: Restart_httpd
+      ansible.builtin.service:
+        name: "{{ apache_pkg }}"
+        state: restarted
+
+    - name: Ensure Service is running and enabled
+      ansible.builtin.service:
+        name: "{{ item }}"
+        state: started
+        enabled: true
+        loop: "{{ web_server_services }}"
+        register: service_result
+
+    - name: Print service status
+      ansible.builtin.debug:
+        msg: "Service {{ item.item }} status: {{ item.state | default('unknown') }}"
+      loop: "{{ service_result.results }}"
+      when: service_result is defined

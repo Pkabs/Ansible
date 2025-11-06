@@ -28,6 +28,20 @@
         update_cache: true
       when: ansible_distribution == "Fedora"
 
+    - name: Change HTTPD port to 8180
+      ansible.builtin.lineinfile:
+        path: /etc/httpd/conf/httpd.conf
+        regexp: '^Listen'
+        line: 'Listen 8180'
+      notify: Restart_httpd
+      when: ansible_distribution == "Fedora"
+
+  handlers:
+    - name: Restart_httpd
+      ansible.builtin.service:
+        name: httpd
+        state: restarted
+
     - name: Ensure Httpd is running and enabled
       ansible.builtin.service:
         name: httpd

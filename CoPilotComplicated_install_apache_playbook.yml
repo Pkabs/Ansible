@@ -1,0 +1,108 @@
+---
+- name: Playbook to install and configure Apache web server
+  hosts: all
+  become: true
+  vars:
+    # Desired listen port for Apache (different from the default 80)
+    desired_listen_port: 8180
+
+  tasks:
+    - name: Load distribution-specific vars (if available)
+      ansible.builtin.include_vars:
+        file: "vars/{{ ansible_os_family }}.yml"
+      failed_when: false
+
+    - name: Set default package/config vars when not provided by distro vars
+      ansible.builtin.set_fact:
+        apache_pkg: "{{ apache_pkg | default('httpd') }}"
+        php_pkg: "{{ php_pkg | default('php') }}"
+        apache_conf: "{{ apache_conf | default('/etc/httpd/conf/httpd.conf') }}"
+
+    - name: Install Apache and PHP support
+      ansible.builtin.package:
+        name:
+          - "{{ apache_pkg }}"
+          - "{{ php_pkg }}"
+        update_cache: true
+        state: present
+
+    - name: Stop Apache service (if package auto-started it) to allow safe config changes
+      ansible.builtin.service:
+        name: "{{ apache_pkg }}"
+        state: stopped
+      failed_when: false
+
+    - name: Check if port 80 is in use
+      ansible.builtin.shell:
+        cmd: |
+          set -o pipefail
+          ss -ltnp | grep -w ':80' || true
+        executable: /bin/bash
+      register: port80
+      changed_when: false
+
+    - name: Fail if port 80 is in use and we intend to listen on 80
+      ansible.builtin.fail:
+        msg: |
+          Port 80 is already in use: {{ port80.stdout }}.
+          Stop or reconfigure the service using port 80 (for example nginx) or change `desired_listen_port`.
+      when: port80.stdout != '' and (desired_listen_port | int) == 80
+
+    - name: Ensure Apache config file exists
+      ansible.builtin.stat:
+        path: "{{ apache_conf }}"
+      register: conf_stat
+
+    - name: Check if desired listen port is in use ({{ desired_listen_port }})
+      ansible.builtin.shell:
+        cmd: |
+          set -o pipefail
+          ss -ltnp | grep -w ':{{ desired_listen_port }}' || true
+        executable: /bin/bash
+      register: port_desired
+      changed_when: false
+
+    - name: Fail if desired listen port is in use
+      ansible.builtin.fail:
+        msg: |
+          Desired listen port {{ desired_listen_port }} is already in use: {{ port_desired.stdout }}.
+          Stop or reconfigure the service using this port or change `desired_listen_port`.
+      when: port_desired.stdout != ''
+
+    - name: Change HTTPD listen port (if config exists) to {{ desired_listen_port }}
+      ansible.builtin.lineinfile:
+        path: "{{ apache_conf }}"
+        regexp: '^Listen'
+        line: "Listen {{ desired_listen_port }}"
+        backup: true
+      notify: Restart_httpd
+      when: conf_stat.stat.exists
+
+    - name: Run Apache configtest (if config exists)
+      ansible.builtin.shell: |
+        if command -v apachectl >/dev/null 2>&1; then
+          apachectl -t
+        elif command -v httpd >/dev/null 2>&1; then
+          httpd -t
+        elif command -v apache2ctl >/dev/null 2>&1; then
+          apache2ctl -t
+        else
+          # Nothing to test on this host
+          exit 0
+        fi
+      register: apache_configtest
+      failed_when: apache_configtest.rc != 0
+      changed_when: false
+      when: conf_stat.stat.exists
+
+    - name: Ensure Apache service is running and enabled
+      ansible.builtin.service:
+        name: "{{ apache_pkg }}"
+        state: started
+        enabled: true
+
+  handlers:
+    - name: Restart_httpd
+      ansible.builtin.service:
+        name: "{{ apache_pkg }}"
+        state: restarted
