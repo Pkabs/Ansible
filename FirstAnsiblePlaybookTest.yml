@@ -24,6 +24,6 @@
         mode: '0644'
 
     - name: Ensure the firewall allows HTTP traffic
-      ansible.builtin.ufw:
+      ansible.builtin.firewalld:
         rule: allow
         name: 'Apache Full'
