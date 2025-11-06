@@ -1,0 +1,4 @@
+---
+apache_pkg: apache
+php_pkg: php
+apache_conf: /etc/httpd/conf/httpd.conf

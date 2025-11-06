@@ -1,0 +1,4 @@
+---
+apache_pkg: apache2
+php_pkg: libapache2-mod-php
+apache_conf: /etc/apache2/ports.conf
