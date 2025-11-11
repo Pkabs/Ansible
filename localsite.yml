@@ -17,14 +17,14 @@
         when: ansible_distribution == "Ubuntu"
 
 - name: Play to install web server packages
-  hosts: web_servers
+  hosts: all
   become: true
   tasks:
       - name: Install httpd Packages (Fedora)
         ansible.builtin.dnf:
             name:
-                - apache2
-                - libapache2-mod-php
+                - httpd
+                - php
             state: present
             update_cache: true
         when: ansible_distribution == "Fedora"
@@ -48,7 +48,7 @@
             state: present
         when: ansible_distribution == "Fedora"
 
-      - name: Install mariadb server
+      - name: Install mariadb server package (Ubuntu)
         ansible.builtin.apt:
             name: mariadb-server
             state: present
