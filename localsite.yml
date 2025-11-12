@@ -42,8 +42,17 @@
             update_cache: true
         when: ansible_distribution == "Ubuntu"
 
+      - name: Copy Custom Web Page
+        tags: fedora,ubuntu
+        ansible.builtin.copy:
+            src: files/customWebPage.html
+            dest: /var/www/html/index.html
+            owner: root
+            group: root
+            mode: '0644'
+
 - name: Play to install db server packages
-  hosts: all
+  hosts: dbservers
   become: true
   tasks:
       - name: Install mariadb server package (Fedora)
