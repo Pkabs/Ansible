@@ -67,6 +67,29 @@
             group: root
             mode: '0644'
 
+      - name: Ensure web server is started and enabled
+        tags: fedora,ubuntu
+        ansible.builtin.service:
+            name: "{{ 'httpd' if ansible_distribution == 'Fedora' else 'apache2' }}"
+            state: started
+            enabled: true
+
+      - name: Update config file to update email address for administrator (Fedora)
+        tags: fedora
+        ansible.builtin.lineinfile:
+            path: /etc/httpd/conf/httpd.conf
+            regexp: '^ServerAdmin '
+            line: ServerAdmin somebody@somewhere.com
+        when: ansible_distribution == "Fedora"
+        register: conf_updated
+
+      - name: Restart httpd if config file was changed (Fedora)
+        tags: fedora
+        ansible.builtin.service:
+            name: httpd
+            state: restarted
+        when: conf_updated.changed
+
 - name: Play to install db server packages
   hosts: dbservers
   become: true
