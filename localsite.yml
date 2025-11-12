@@ -1,6 +1,6 @@
 ---
 
-- name: Play to install Updates
+- name: Play to install Updates and Common Packages
   hosts: all
   become: true
   pre_tasks:
@@ -17,6 +17,22 @@
             upgrade: dist
             update_cache: true
         when: ansible_distribution == "Ubuntu"
+
+      - name: Install unzip package
+        tags: fedora,ubuntu
+        ansible.builtin.package:
+            name: unzip
+            state: present
+
+      - name: Install terraform package
+        tags: fedora,ubuntu
+        ansible.builtin.unarchive:
+            src: https://releases.hashicorp.com/terraform/1.13.5/terraform_1.13.5_linux_amd64.zip
+            dest: /usr/local/bin/
+            remote_src: true
+            mode: '0755'
+            owner: root
+            group: root
 
 - name: Play to install web server packages
   hosts: all
